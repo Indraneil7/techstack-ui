@@ -1,83 +1,65 @@
 import { 
-  Tool, 
-  Toolkit, 
-  ApiToolkit, 
-  ProcessStep, 
-  Subphase,
-  Industry,
-  ProjectType 
-} from '../types';
+  Toolkit} from '../types/index';
 
-const transformTool = (tool: Tool): Tool => ({
-  id: tool.id,
-  created_at: tool.created_at,
-  name: tool.name,
-  overview: tool.overview || '',
-  features: tool.features || [],
-  likes: tool.likes || 0,
-  website: tool.website || '',
-  category: tool.category,
-  icon: tool.icon
-});
 
-const transformSubphases = (substages: any[]): Subphase[] => {
-  if (!substages || !Array.isArray(substages)) return [];
-  
-  return substages.map(substage => {
-    const tools = substage._tools_of_substages || [];
-    return {
-      id: substage.id,
-      name: substage.name,
-      description: substage.description,
-      traditional: {
-        tools: tools
-          .filter((tool:Tool) => tool.category === 'Traditional')
-          .map(transformTool)
-      },
-      ai: {
-        tools: tools
-          .filter((tool:Tool) => tool.category === 'AI')
-          .map(transformTool)
-      }
-    };
-  });
-};
-
-const transformProcessStages = (stagesArray: any[][]): ProcessStep[] => {
-  if (!stagesArray || !Array.isArray(stagesArray)) return [];
-
-  return stagesArray.flat().map(stage => ({
-    id: stage.id,
-    phase: stage.name,
-    info: stage.info,
-    subphases: transformSubphases(stage._substages_of_processstages)
-  }));
-};
 
 export const transformToolkitData = (
-  apiResponse: { result1: ApiToolkit[] },
-  industries: Industry[],
-  projectTypes: ProjectType[]
-): Toolkit[] => {
-  if (!apiResponse?.result1 || !Array.isArray(apiResponse.result1)) {
-    return [];
-  }
+  apiResponse: { result1: any[] }): Toolkit[] => {
+  if (!apiResponse?.result1) return [];
 
   return apiResponse.result1.map(toolkit => {
-    const industry = industries.find(i => i.id === toolkit.industry_id)?.name || 'Unknown';
-    const projectType = projectTypes.find(p => p.id === toolkit.projecttype_id)?.name || 'Unknown';
+    console.log('Raw toolkit data:', toolkit);
+    console.log('Raw process stages:', toolkit.processstages_id);
+    
+    // Handle the nested array structure and flatten all process stages
+    let processSteps = [];
+    if (Array.isArray(toolkit.processstages_id)) {
+      // Flatten all nested arrays and filter out nulls
+      processSteps = toolkit.processstages_id
+        .flat()
+        .filter((step: unknown) => step !== null);
+    }
+    
+    console.log('Processed process steps:', processSteps);
 
     return {
       id: toolkit.id,
+      created_at: toolkit.created_at,
       title: toolkit.title,
       description: toolkit.description,
       likes: toolkit.likes || 0,
-      industry,
-      projectType,
       industry_id: toolkit.industry_id,
       projecttype_id: toolkit.projecttype_id,
-      processSteps: transformProcessStages(toolkit.processstages_id),
-      comments: 0 // Initialize with 0, can be updated when comments are fetched
+      processstages_id: processSteps.map((step: any) => {
+        if (!step || typeof step !== 'object') return null;
+        
+        return {
+          id: step.id,
+          created_at: step.created_at,
+          name: step.name,
+          info: step.info,
+          _substages_of_processstages: (step._substages_of_processstages || [])
+            .filter((substage: any) => substage !== null)
+            .map((substage: any) => {
+              if (!substage || typeof substage !== 'object') return null;
+              
+              // Handle tools array the same way - flatten and filter nulls
+              const tools = Array.isArray(substage.tools_id)
+                ? substage.tools_id.flat().filter((tool: any) => tool !== null)
+                : [];
+              
+              return {
+                id: substage.id,
+                created_at: substage.created_at,
+                name: substage.name,
+                description: substage.description,
+                processstages_id: substage.processstages_id,
+                _tools_of_substages: tools
+              };
+            })
+            .filter(Boolean)
+        };
+      }).filter(Boolean)
     };
   });
 };

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
-import { Industry, ProjectType, Toolkit, ApiToolkit } from '../types';
+import { Industry, ProjectType, Toolkit } from '../types/index';
+import { transformToolkitData } from '../utils/transforms';
 
 export const useToolkit = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -24,25 +25,19 @@ export const useToolkit = () => {
           api.getProjectTypes()
         ]);
 
+        console.log('Raw toolkit response:', toolkitsResponse); // Debug log
+
         setIndustries(industriesResponse || []);
         setProjectTypes(projectTypesResponse || []);
 
         // Transform API toolkits to match UI requirements
-        const transformedToolkits = (toolkitsResponse.result1 || []).map((apiToolkit: ApiToolkit) => {
-          const industry = industriesResponse.find((i: Industry) => i.id === apiToolkit.industry_id)?.name || 'Unknown';
-          const projectType = projectTypesResponse.find((p: ProjectType) => p.id === apiToolkit.projecttype_id)?.name || 'Unknown';
-          
-          return {
-            id: apiToolkit.id,
-            title: apiToolkit.title,
-            description: apiToolkit.description,
-            likes: apiToolkit.likes,
-            industry,
-            projectType,
-            processSteps: apiToolkit.processstages_id.flat() // Flatten the nested array
-          };
-        });
+        const transformedToolkits = transformToolkitData(
+          toolkitsResponse,
+          industriesResponse,
+          projectTypesResponse
+        );
 
+        console.log('Transformed toolkits:', transformedToolkits); // Debug log
         setToolkits(transformedToolkits);
 
       } catch (err) {
@@ -58,9 +53,9 @@ export const useToolkit = () => {
 
   // Filter toolkits based on selected industry and project type
   const filteredToolkits = toolkits.filter(toolkit => {
-    if (selectedIndustry && toolkit.industry !== selectedIndustry) return false;
-    if (selectedProjectType && toolkit.projectType !== selectedProjectType) return false;
-    return true;
+    const industryMatch = !selectedIndustry || toolkit.industry_id.toString() === selectedIndustry;
+    const projectTypeMatch = !selectedProjectType || toolkit.projecttype_id.toString() === selectedProjectType;
+    return industryMatch && projectTypeMatch;
   });
 
   return {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Industry, ProjectType } from '../types';
+import { Industry, ProjectType } from '../types/index';
 
 interface FiltersProps {
   industries: Industry[];
@@ -20,6 +20,10 @@ const Filters: React.FC<FiltersProps> = ({
   setSelectedProjectType,
   isLoading = false
 }) => {
+  // Ensure we're working with arrays
+  const industryList = Array.isArray(industries) ? industries : [];
+  const projectTypeList = Array.isArray(projectTypes) ? projectTypes : [];
+
   return (
     <div className="bg-white shadow">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -40,7 +44,7 @@ const Filters: React.FC<FiltersProps> = ({
               disabled={isLoading}
             >
               <option value="">All Industries</option>
-              {industries.map((industry) => (
+              {industryList.map((industry) => (
                 <option key={industry.id} value={industry.id}>
                   {industry.name}
                 </option>
@@ -64,7 +68,7 @@ const Filters: React.FC<FiltersProps> = ({
               disabled={isLoading}
             >
               <option value="">All Project Types</option>
-              {projectTypes.map((type) => (
+              {projectTypeList.map((type) => (
                 <option key={type.id} value={type.id}>
                   {type.name}
                 </option>

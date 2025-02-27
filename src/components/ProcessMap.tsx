@@ -1,13 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Info } from 'lucide-react';
-import { ProcessStep, Tool } from '../types';
+import { Info, ChevronLeft, ChevronRight, Sparkles, Wand2 } from 'lucide-react';
+import { ProcessStep, Tool, Subphase } from '../types/index';
+import styled from 'styled-components';
+
+// Create a styled component for the scrollable container
+const ScrollContainer = styled.div`
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+`;
 
 interface ProcessMapProps {
   data: {
     processSteps: ProcessStep[];
   };
   onToolClick: (tool: Tool) => void;
+  explanations: {[key: string]: boolean};
 }
 
 interface ToolButtonProps {
@@ -47,7 +58,7 @@ const ToolButton: React.FC<ToolButtonProps> = ({ tool, onClick, category }) => {
         <img 
           src={tool.icon?.url} 
           alt={tool.name}
-          className="w-8 h-8 rounded object-cover"
+            className="w-8 h-8 rounded object-cover"
           onError={handleImageError}
         />
         <span className="text-sm font-medium">{tool.name}</span>
@@ -56,99 +67,187 @@ const ToolButton: React.FC<ToolButtonProps> = ({ tool, onClick, category }) => {
   );
 };
 
-const ProcessMap: React.FC<ProcessMapProps> = ({ data, onToolClick }) => {
+const ProcessMap: React.FC<ProcessMapProps> = ({ data, onToolClick, explanations }) => {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [hoveredInfo, setHoveredInfo] = useState<InfoType>(null);
 
-  if (!data?.processSteps || !Array.isArray(data.processSteps)) {
-    console.error('Invalid process steps data:', data);
-    return null;
-  }
+  const handleScroll = (direction: 'left' | 'right') => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = 400;
+      const newScrollPosition = scrollContainerRef.current.scrollLeft + 
+        (direction === 'left' ? -scrollAmount : scrollAmount);
+      
+      scrollContainerRef.current.scrollTo({
+        left: newScrollPosition,
+        behavior: 'smooth'
+      });
+    }
+  };
 
-  const renderProcessFlow = (category: 'traditional' | 'ai') => {
-    const isTraditional = category === 'traditional';
-    const title = isTraditional ? 'Traditional Development Process' : 'AI-Powered Alternatives';
-    const titleColor = isTraditional ? 'text-blue-700' : 'text-purple-700';
-    const infoColor = isTraditional ? 'text-blue-500' : 'text-purple-500';
+  const renderToolComparison = (subphase: Subphase) => {
+    // Get tools from _tools_of_substages
+    const tools = subphase._tools_of_substages || [];
+    
+    console.log('Subphase:', subphase.name);
+    console.log('Raw tools:', tools);
 
+    const traditionalTools = tools.filter((t): t is Tool => 
+      t && typeof t === 'object' && 
+      'category' in t && 
+      t.category === 'Traditional'
+    );
+    const aiTools = tools.filter((t): t is Tool => 
+      t && typeof t === 'object' && 
+      'category' in t && 
+      t.category === 'AI'
+    );
+
+    console.log('Traditional tools:', traditionalTools);
+    console.log('AI tools:', aiTools);
+
+    const maxTools = Math.max(traditionalTools.length, aiTools.length);
+    
     return (
-      <div className="relative">
-        <div className="flex items-center space-x-2 mb-4">
-          <h3 className={`text-xl font-semibold ${titleColor}`}>{title}</h3>
-          <div className="relative">
-            <Info 
-              className={`w-5 h-5 ${infoColor} cursor-help`}
-              onMouseEnter={() => setHoveredInfo(category)}
-              onMouseLeave={() => setHoveredInfo(null)}
-            />
-            {hoveredInfo === category && (
-              <div className="absolute left-0 top-6 w-64 bg-gray-900 text-white p-3 rounded-lg shadow-lg text-sm z-50">
-                {isTraditional 
-                  ? 'Proven methodologies and tools that have been industry standards for years.'
-                  : 'Modern AI-driven tools that enhance productivity through automation and intelligent assistance.'}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-start space-x-4">
-          {data.processSteps.map((step, stepIndex) => (
-            <div key={stepIndex} className="flex-shrink-0 w-72">
-              <div className="bg-white rounded-lg shadow-lg p-4">
-                <div className="flex items-center space-x-2">
-                  <h4 className="font-medium text-gray-900">{step.phase}</h4>
-                  <div className="relative">
-                    <Info 
-                      className="w-4 h-4 text-gray-400 cursor-help"
-                      onMouseEnter={() => setHoveredInfo(`step-${stepIndex}` as InfoType)}
-                      onMouseLeave={() => setHoveredInfo(null)}
-                    />
-                    {hoveredInfo === `step-${stepIndex}` && (
-                      <div className="absolute left-0 top-6 w-64 bg-gray-900 text-white p-3 rounded-lg shadow-lg text-sm z-50">
-                        {PROCESS_INFO[step.phase as keyof typeof PROCESS_INFO]?.description || step.info}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {step.subphases.map((subphase, subIndex) => (
-                    <div key={subIndex} className="border-t pt-4">
-                      <h5 className="text-sm font-medium text-gray-700 mb-2">
-                        {subphase.name}
-                      </h5>
-                      <p className="text-xs text-gray-500 mb-3">
-                        {subphase.description}
-                      </p>
-                      <div className="space-y-2">
-                        {(isTraditional ? subphase.traditional.tools : subphase.ai.tools).map((tool, toolIndex) => (
-                          <ToolButton
-                            key={toolIndex}
-                            tool={tool}
-                            onClick={onToolClick}
-                            category={category}
-                          />
-                        ))}
-                      </div>
+      <>
+        {Array.from({ length: maxTools }).map((_, index) => (
+          <div key={index} className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              {traditionalTools[index] && (
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  initial={false}
+                >
+                  <div 
+                    className="bg-blue-50 p-4 rounded-lg cursor-pointer"
+                    onClick={() => onToolClick(traditionalTools[index])}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <img 
+                        src={traditionalTools[index].icon?.url} 
+                        alt={traditionalTools[index].name}
+                        className="w-8 h-8 rounded"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = '/fallback-icon.png';
+                        }}
+                      />
+                      <span className="font-medium">{traditionalTools[index].name}</span>
                     </div>
-                  ))}
-                </div>
-              </div>
-              
+                  </div>
+                </motion.div>
+              )}
             </div>
-          ))}
-        </div>
-      </div>
+
+            <div>
+              {aiTools[index] && (
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  initial={false}
+                >
+                  <div 
+                    className="bg-purple-50 p-4 rounded-lg cursor-pointer"
+                    onClick={() => onToolClick(aiTools[index])}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <img 
+                        src={aiTools[index].icon?.url} 
+                        alt={aiTools[index].name}
+                        className="w-8 h-8 rounded"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = '/fallback-icon.png';
+                        }}
+                      />
+                      <span className="font-medium">{aiTools[index].name}</span>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+          </div>
+        ))}
+      </>
     );
   };
 
   return (
-    <div className="overflow-x-auto">
-      <div className="min-w-max p-8">
-        <div className="flex flex-col space-y-12">
-          {renderProcessFlow('traditional')}
-          {renderProcessFlow('ai')}
+    <div className="relative">
+      <button
+        onClick={() => handleScroll('left')}
+        className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 bg-white rounded-full shadow-lg p-2 hover:bg-gray-50"
+      >
+        <ChevronLeft className="w-6 h-6 text-gray-600" />
+      </button>
+      
+      <button
+        onClick={() => handleScroll('right')}
+        className="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 bg-white rounded-full shadow-lg p-2 hover:bg-gray-50"
+      >
+        <ChevronRight className="w-6 h-6 text-gray-600" />
+      </button>
+
+      <ScrollContainer ref={scrollContainerRef} className="overflow-x-auto">
+        <div className="min-w-max p-8">
+          <div className="flex space-x-8">
+            {Array.isArray(data.processSteps) && data.processSteps
+              .filter(step => step !== null && typeof step === 'object' && 'id' in step)
+              .map((step, stepIndex) => (
+                <div key={step.id} className="w-96 bg-white rounded-lg shadow-lg p-6">
+                  {explanations[step.id] && (
+                    <div className="mb-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4">
+                      <div className="text-sm text-gray-700">
+                        <h4 className="font-medium text-purple-700 flex items-center">
+                          <Wand2 className="w-4 h-4 mr-2" />
+                          AI Analysis:
+                        </h4>
+                        <p className="mt-2">{step.info}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-2">
+                      <h3 className="text-xl font-semibold text-gray-900">
+                        {step.name}
+                      </h3>
+                      <Info 
+                        className="w-5 h-5 text-gray-400 cursor-help"
+                        onMouseEnter={() => setHoveredInfo(`step-${stepIndex}` as InfoType)}
+                        onMouseLeave={() => setHoveredInfo(null)}
+                      />
+                    </div>
+                  </div>
+
+                  {hoveredInfo === `step-${stepIndex}` && (
+                    <div className="absolute left-0 top-6 w-64 bg-gray-900 text-white p-3 rounded-lg shadow-lg text-sm z-50">
+                      {step.info}
+                    </div>
+                  )}
+
+                  {step._substages_of_processstages?.map((subphase, index) => (
+                    <div key={subphase.id} className="mb-6 last:mb-0">
+                      <div className="mb-4">
+                        <h4 className="font-medium text-gray-800">
+                          {subphase.name}
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          {subphase.description}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 mb-2">
+                        <div className="text-sm font-medium text-blue-700">Traditional Tools</div>
+                        <div className="text-sm font-medium text-purple-700">AI Alternatives</div>
+                      </div>
+
+                      {renderToolComparison(subphase)}
+                    </div>
+                  ))}
+                </div>
+              ))}
+          </div>
         </div>
-      </div>
+      </ScrollContainer>
     </div>
   );
 };

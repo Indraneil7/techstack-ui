@@ -28,36 +28,35 @@ export interface Tool {
   id: number;
   created_at: number;
   name: string;
+  icon: Icon;
   overview: string;
   features: string[];
   likes: number;
   website: string;
   category: 'Traditional' | 'AI';
-  icon: Icon;
 }
 
 // Process related types
 export interface Subphase {
   id: number;
+  created_at: number;
+  processstages_id: number;
   name: string;
   description: string;
-  traditional: {
-    tools: Tool[];
-  };
-  ai: {
-    tools: Tool[];
-  };
+  tools_id: number[][];
+  _tools_of_substages: Tool[];
 }
 
 export interface ProcessStep {
   id: number;
-  phase: string;
+  created_at: number;
+  name: string;
   info: string;
-  subphases: Subphase[];
+  _substages_of_processstages: Subphase[];
 }
 
 // API response types
-export interface ApiToolkit {
+export interface Toolkit {
   id: number;
   created_at: number;
   title: string;
@@ -65,34 +64,7 @@ export interface ApiToolkit {
   likes: number;
   industry_id: number;
   projecttype_id: number;
-  processstages_id: Array<Array<{
-    id: number;
-    created_at: number;
-    name: string;
-    info: string;
-    _substages_of_processstages: Array<{
-      id: number;
-      created_at: number;
-      processstages_id: number;
-      name: string;
-      description: string;
-      _tools_of_substages: Tool[];
-    }>;
-  }>>;
-}
-
-// Transformed types for UI
-export interface Toolkit {
-  id: number;
-  title: string;
-  description: string;
-  likes: number;
-  industry: string;
-  industry_id: number;    // Add this
-  projecttype_id: number; // Add this
-  projectType: string;
-  processSteps: ProcessStep[];
-  comments?: number;
+  processstages_id: Array<Array<ProcessStep>>;
 }
 
 export interface Comment {
@@ -100,4 +72,38 @@ export interface Comment {
   text: string;
   author: string;
   timestamp: string;
+}
+
+// Add new types
+export interface ValidationErrors {
+  [key: string]: string[];
+}
+
+export interface ValidationIssue {
+  field: string;
+  message: string;
+}
+
+export interface AuthData {
+  username: string;
+  password: string;
+  confirmPassword: string;
+  linkedinProfile?: string;
+}
+
+// Add MutableProcessStep for the form
+export interface MutableProcessStep extends Omit<ProcessStep, '_substages_of_processstages'> {
+  subphases: Array<{
+    id?: number;
+    created_at?: number;
+    name: string;
+    description: string;
+    processstages_id?: number;
+    traditional: {
+      tools: Tool[];
+    };
+    ai: {
+      tools: Tool[];
+    };
+  }>;
 }
