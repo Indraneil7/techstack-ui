@@ -28,7 +28,7 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({
   const [isPublishing, setIsPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
-  const { isAnonymous } = useAuthStore();
+  const { isAnonymous, user } = useAuthStore();
   const [publishingStage, setPublishingStage] = useState<string>('');
   const [progress, setProgress] = useState<number>(0);
 
@@ -69,29 +69,37 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({
 
       console.log('Publishing toolkit with data:', toolkitData);
 
+      // Only associate toolkit with authenticated users (not guests)
+      // Check if user exists AND is not anonymous
+      const userData = user && !isAnonymous ? {
+        userId: user.id,
+        toolkitIds: user.toolkitIds || []
+      } : undefined;
+      
+      // Log authentication status for debugging
+      console.log('User authentication status:', { 
+        hasUser: !!user, 
+        isAnonymous, 
+        willAssociate: !!userData 
+      });
+      
       const result = await toolkitCreationApi.createCompleteToolkit(
         toolkitData,
         (stage, progress) => {
           setPublishingStage(stage);
           setProgress(progress);
-        }
+        },
+        userData
       );
-
-      if (result.id) {
-        toast.success('Toolkit published successfully!');
-        setTimeout(() => {
-          navigate('/');
-        }, 2000);
-      }
+      
+      toast.success('Toolkit published successfully!');
+      
+      // After successful publish, redirect to the toolkit page
+      navigate(`/toolkit/${result.id}`);
     } catch (err) {
       console.error('Publish error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to publish toolkit';
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
+      setError(err instanceof Error ? err.message : 'Failed to publish toolkit');
       setIsPublishing(false);
-      setPublishingStage('');
-      setProgress(0);
     }
   };
 

@@ -1,4 +1,6 @@
 import { Tool, ProcessStep, Toolkit, MutableProcessStep } from '../types/index';
+import { useAuthStore } from '../store/authStore';
+import { authService } from '../services/authService';
 
 const BASE_URL = 'https://x8ki-letl-twmt.n7.xano.io/api:JQwL4HAE';
 
@@ -66,6 +68,17 @@ interface ToolCreationPayload {
     };
     data: string;
   };
+}
+
+// Add a type definition for the toolkit payload
+interface ToolkitPayload {
+  title: string;
+  description: string;
+  industry_id: number;
+  projecttype_id: number;
+  processstages_id: number[];
+  likes: number;
+  auth_tech_id?: number | null; // Allow null as a valid value
 }
 
 export const toolkitCreationApi = {
@@ -146,7 +159,8 @@ export const toolkitCreationApi = {
         }>;
       }>;
     },
-    onProgress: (stage: string, progress: number) => void
+    onProgress: (stage: string, progress: number) => void,
+    userData?: { userId: number; toolkitIds: number[] }
   ) => {
     try {
       onProgress('Creating toolkit...', 10);
@@ -329,19 +343,30 @@ export const toolkitCreationApi = {
       // Step 4: Create the final toolkit
       onProgress('Creating toolkit...', 90);
       await delay(2000); // Final delay before creating toolkit
+
+      // Prepare the toolkit creation payload
+      const toolkitPayload: ToolkitPayload = {
+        title: data.basicInfo.title,
+        description: data.basicInfo.description,
+        industry_id: data.basicInfo.industry,
+        projecttype_id: data.basicInfo.projectType,
+        processstages_id: processStages.map(stage => stage.id),
+        likes: 0,
+        auth_tech_id: userData?.userId || null // Explicitly set null for anonymous users
+      };
+
+      console.log('Creating toolkit with auth status:', userData?.userId ? 
+        `Authenticated user: ${userData.userId}` : 
+        'Anonymous user (null auth_tech_id)'
+      );
+
       const toolkit = await fetchWithRetry('/toolkit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: data.basicInfo.title,
-          description: data.basicInfo.description,
-          industry_id: data.basicInfo.industry,
-          projecttype_id: data.basicInfo.projectType,
-          processstages_id: processStages.map(stage => stage.id),
-          likes: 0
-        })
+        body: JSON.stringify(toolkitPayload)
       });
 
+      // No need for separate user association as it's done during creation
       onProgress('Complete!', 100);
       return toolkit;
     } catch (error) {

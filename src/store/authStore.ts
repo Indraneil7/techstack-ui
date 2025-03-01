@@ -1,39 +1,75 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { authService } from '../services/authService';
+
+interface User {
+  id: number;
+  username: string;
+  toolkitIds: number[];
+  linkedIn?: string;
+}
 
 interface AuthState {
+  user: User | null;
   isAuthenticated: boolean;
-  username: string | null;
-  // Simple flag for anonymous users
   isAnonymous: boolean;
+  token: string | null;
   
   // Actions
   login: (username: string, password: string) => Promise<void>;
+  register: (username: string, password: string, linkedIn?: string) => Promise<void>;
   continueAsGuest: () => void;
   logout: () => void;
+  associateToolkit: (toolkitId: number) => void;
   clearGuestState: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
+      user: null,
       isAuthenticated: false,
-      username: null,
       isAnonymous: false,
-
+      token: null,
+      
       login: async (username, password) => {
         try {
-          const response = await fetch('https://x8ki-letl-twmt.n7.xano.io/api:JQwL4HAE/auth_tech/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password }),
+          const data = await authService.login(username, password);
+          
+          set({ 
+            user: {
+              id: data.id,
+              username: data.username,
+              toolkitIds: data.toolkit_id || [],
+              linkedIn: data.linkedIn
+            }, 
+            isAuthenticated: true,
+            isAnonymous: false,
+            token: data.token
           });
-          
-          if (!response.ok) throw new Error('Login failed');
-          
-          set({ isAuthenticated: true, username, isAnonymous: false });
         } catch (error) {
-          console.error('Login error:', error);
+          console.error('Login failed:', error);
+          throw error;
+        }
+      },
+      
+      register: async (username, password, linkedIn) => {
+        try {
+          const data = await authService.register(username, password, linkedIn);
+          
+          set({ 
+            user: {
+              id: data.id,
+              username: data.username,
+              toolkitIds: [],
+              linkedIn: data.linkedIn
+            }, 
+            isAuthenticated: true,
+            isAnonymous: false,
+            token: data.token
+          });
+        } catch (error) {
+          console.error('Registration failed:', error);
           throw error;
         }
       },
@@ -41,11 +77,13 @@ export const useAuthStore = create<AuthState>()(
       continueAsGuest: () => {
         // Clear any previous guest state
         localStorage.removeItem('auth-storage');
-        set({ isAnonymous: true, isAuthenticated: false, username: null });
+        set({ isAnonymous: true, isAuthenticated: false, user: null, token: null });
       },
 
       logout: () => {
-        set({ isAuthenticated: false, username: null, isAnonymous: false });
+        // Clear username cache on logout
+        authService.clearUsernameCache();
+        set({ isAuthenticated: false, user: null, isAnonymous: false, token: null });
       },
 
       clearGuestState: () => {
@@ -53,17 +91,31 @@ export const useAuthStore = create<AuthState>()(
           const authState = JSON.parse(localStorage.getItem('auth-storage') || '{}');
           if (authState.state?.isAnonymous) {
             localStorage.removeItem('auth-storage');
-            set({ isAuthenticated: false, username: null, isAnonymous: false });
+            set({ isAuthenticated: false, user: null, isAnonymous: false, token: null });
           }
         }
+      },
+      
+      associateToolkit: (toolkitId) => {
+        const { user, isAuthenticated } = get();
+        if (!isAuthenticated || !user) return;
+        
+        // Update user in state
+        const updatedToolkitIds = [...(user.toolkitIds || []), toolkitId];
+        set({ user: { ...user, toolkitIds: updatedToolkitIds } });
+        
+        // Update user in database
+        authService.associateToolkitWithUser(user.id, updatedToolkitIds)
+          .catch(error => console.error('Failed to update user toolkit associations:', error));
       }
     }),
     {
       name: 'auth-storage',
       partialize: (state) => ({
-        ...state,
-        // Don't persist guest state across page refreshes
-        isAnonymous: false
+        user: state.user,
+        isAuthenticated: state.isAuthenticated,
+        isAnonymous: state.isAnonymous,
+        token: state.token
       })
     }
   )

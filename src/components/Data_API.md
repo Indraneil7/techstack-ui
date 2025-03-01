@@ -10,14 +10,14 @@ Below is the JSON for the tables in the database.
 
 {"id":"integer","created_at":"timestamp","name":"text","icon":"image","overview":"text","features":["text"],"likes":"integer","website":"text","category":"enum"} - tools
 
-{"id":"integer","created_at":"timestamp","title":"text","description":"text","likes":"integer","industry_id":"integer","projecttype_id":"integer","processstages_id":["integer"]} - toolkit
+{"id":"integer","created_at":"timestamp","title":"text","description":"text","likes":"integer","industry_id":"integer","projecttype_id":"integer","processstages_id":["integer"],"auth_tech_id":"integer"} - toolkit
 
 {"id":"integer","created_at":"timestamp","tools_id":"integer","comment":"text"} - toolcomments
 
 
 {"id":"integer","created_at":"timestamp","toolkit_id":"integer","comment":"text"} - toolkilcomments
 
-{"id":"integer","created_at":"timestamp","username":"text","password":"password"} - auth_tech
+{"id":"integer","created_at":"timestamp","username":"text","password":"password","linkedIn":"text"} - auth_tech
 
 Below is the API for the database for all the tables and all the curd operations.
 

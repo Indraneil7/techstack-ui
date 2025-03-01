@@ -10,6 +10,7 @@ import { useAuthStore } from '../../store/authStore';
 import { AuthModal } from '../auth/AuthModal';
 import { toolkitCreationApi } from '../../utils/toolkitCreationApi';
 import { MutableProcessStep } from '../../types/index';
+import { UserStatusBar } from '../auth/UserStatusBar';
 
 const STEPS = ['Basic Information', 'Process Steps', 'Review & Publish'];
 
@@ -56,10 +57,13 @@ const ToolkitCreatorContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4">
-        <DraftManager />
-        {renderStep()}
+    <div className="min-h-screen bg-gray-50">
+      <UserStatusBar />
+      <div className="py-8">
+        <div className="max-w-7xl mx-auto px-4">
+          <DraftManager />
+          {renderStep()}
+        </div>
       </div>
     </div>
   );
